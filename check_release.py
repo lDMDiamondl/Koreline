@@ -1,26 +1,15 @@
-"""
-CelesteKRPatch 새 릴리즈 감지 → Discord 알림 봇
-새 릴리즈가 올라오면 릴리즈 URL 하나만 전송합니다.
-"""
-
 import os
 import json
+import subprocess
 import urllib.request
 import urllib.error
 
-# ──────────────────────────────────────────────
-# 설정
-# ──────────────────────────────────────────────
 GITHUB_REPO       = os.getenv("GITHUB_REPO", "lDMDiamondl/CelesteKRPatch")
 DISCORD_WEBHOOK   = os.getenv("DISCORD_WEBHOOK_URL", "")
 LAST_RELEASE_FILE = os.getenv("LAST_RELEASE_FILE", "last_release.txt")
 
 GITHUB_API_URL    = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
-
-# ──────────────────────────────────────────────
-# GitHub API 호출
-# ──────────────────────────────────────────────
 def fetch_latest_release() -> dict:
     req = urllib.request.Request(
         GITHUB_API_URL,
@@ -39,10 +28,6 @@ def fetch_latest_release() -> dict:
         print(f"[ERROR] 네트워크 오류: {e}")
         raise
 
-
-# ──────────────────────────────────────────────
-# 마지막 알림 릴리즈 ID 관리
-# ──────────────────────────────────────────────
 def load_last_release_id() -> str:
     try:
         with open(LAST_RELEASE_FILE, "r", encoding="utf-8") as f:
@@ -56,35 +41,32 @@ def save_last_release_id(release_id: str):
         f.write(release_id)
     print(f"[INFO] 마지막 릴리즈 ID 저장: {release_id}")
 
-
-# ──────────────────────────────────────────────
-# Discord 전송 (URL만)
-# ──────────────────────────────────────────────
 def send_discord_message(url: str):
     if not DISCORD_WEBHOOK:
         print("[ERROR] DISCORD_WEBHOOK_URL 환경변수가 설정되지 않았습니다.")
         raise ValueError("DISCORD_WEBHOOK_URL 없음")
 
-    payload = json.dumps({"content": url}).encode("utf-8")
+    payload = json.dumps({"content": url})
 
-    req = urllib.request.Request(
-        DISCORD_WEBHOOK,
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
+    result = subprocess.run(
+        [
+            "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+            "-X", "POST", DISCORD_WEBHOOK,
+            "-H", "Content-Type: application/json",
+            "-d", payload,
+        ],
+        capture_output=False,
+        text=True,
+        stdout=subprocess.PIPE,
     )
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            print(f"[INFO] Discord 전송 성공: HTTP {resp.status}")
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        print(f"[ERROR] Discord Webhook 오류: HTTP {e.code} — {body}")
-        raise
 
+    status = result.stdout.strip()
+    if result.returncode != 0 or not status.startswith("2"):
+        print(f"[ERROR] Discord 전송 실패: HTTP {status}")
+        raise RuntimeError(f"Discord 전송 실패 (HTTP {status})")
 
-# ──────────────────────────────────────────────
-# 메인
-# ──────────────────────────────────────────────
+    print(f"[INFO] Discord 전송 성공: HTTP {status}")
+
 def main():
     print(f"[INFO] GitHub 릴리즈 확인 중: {GITHUB_REPO}")
 
