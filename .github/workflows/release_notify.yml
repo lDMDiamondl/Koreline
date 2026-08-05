@@ -1,0 +1,53 @@
+name: CelesteKRPatch 릴리즈 알림
+
+on:
+  schedule:
+    # 매 30분마다 실행 (UTC 기준) — GitHub 무료 플랜 월 한도 내
+    - cron: '*/30 * * * *'
+  # 수동 실행 (테스트용)
+  workflow_dispatch:
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      # ── 1. 코드 체크아웃 ──────────────────────────────────────
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      # ── 2. 마지막 릴리즈 ID 캐시 복원 ────────────────────────
+      - name: 마지막 릴리즈 ID 캐시 복원
+        id: cache-release
+        uses: actions/cache@v4
+        with:
+          path: last_release.txt
+          key: last-release-id
+          restore-keys: |
+            last-release-id
+
+      # ── 3. Python 설정 ────────────────────────────────────────
+      - name: Python 3.11 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ── 4. 릴리즈 확인 및 알림 전송 ─────────────────────────
+      - name: 릴리즈 확인 및 Discord 알림
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_REPO: lDMDiamondl/CelesteKRPatch
+          LAST_RELEASE_FILE: last_release.txt
+        run: python check_release.py
+
+      # ── 5. 마지막 릴리즈 ID 캐시 저장 ────────────────────────
+      #    (캐시 키가 hit이어도 덮어씌울 수 있도록 always() 사용)
+      - name: 마지막 릴리즈 ID 캐시 저장
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: last_release.txt
+          key: last-release-id-${{ github.run_id }}
+
