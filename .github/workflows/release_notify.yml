@@ -2,7 +2,7 @@ name: CelesteKRPatch 릴리즈 알림
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '7,37 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -15,11 +15,11 @@ jobs:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: Python 설정
+      - name: Python 3.11 설정
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
+
       - name: 릴리즈 확인 및 Discord 알림
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
